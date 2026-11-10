@@ -1,0 +1,58 @@
+name: pmng
+
+services:
+  pmng-persistance:
+    image: mysql:8.0
+    container_name: pmng-persistance
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - pmng-data:/var/lib/mysql
+    networks:
+      pmng-net:
+        aliases:
+          - pmng-mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  pmng-servicios:
+    build: ./service
+    image: pmng-back:latest
+    container_name: pmng-servicios
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      pmng-persistance:
+        condition: service_healthy
+    ports:
+      - "8089:8080"
+    networks:
+      pmng-net:
+        aliases:
+          - pmng-back
+
+  pmng-cliente:
+    build: ./client
+    image: pmng-front:latest
+    container_name: pmng-cliente
+    restart: unless-stopped
+    depends_on:
+      - pmng-servicios
+    ports:
+      - "5173:80"
+    networks:
+      pmng-net:
+        aliases:
+          - frontend
+
+networks:
+  pmng-net:
+    driver: bridge
+
+volumes:
+  pmng-data:
